@@ -6,13 +6,18 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <!--Widget for exoplayer view-->
+    <Button
+        android:id="@+id/button_open"
+        android:text="Choose Video FIle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
     <VideoView
         android:id="@+id/videoView"
         android:layout_alignParentTop="true"
         android:layout_width="match_parent"
-        android:layout_height="500dp"/>
+        android:layout_height="400dp"/>
     <LinearLayout
+        android:id="@+id/attr_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -33,6 +38,37 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"/>
+    </LinearLayout>
+    <LinearLayout
+        android:layout_below="@+id/attr_container"
+        android:gravity="center"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <Button
+            android:id="@+id/startRecordingButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Start Recording" />
+
+        <Button
+            android:id="@+id/stopRecordingButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Stop Recording" />
+
+        <Button
+            android:id="@+id/playRecordingButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Play Recording" />
+
+        <Button
+            android:id="@+id/replaceAudioButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Replace Audio" />
     </LinearLayout>
 
 </RelativeLayout>
