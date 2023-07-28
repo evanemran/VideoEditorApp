@@ -1,7 +1,9 @@
 package com.evanemran.videoeditorapp
 
+import FFmpegUtil
 import android.app.Activity
 import android.content.ContentResolver
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -10,6 +12,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Log
@@ -18,6 +21,7 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.evanemran.videoeditorapp.listeners.AudioReplaceListener
+import com.evanemran.videoeditorapp.utils.FileSelectionUtils
 import com.evanemran.videoeditorapp.utils.FileUtils
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
@@ -37,6 +41,10 @@ class MainActivity : AppCompatActivity() {
     lateinit var videoPlayer: VideoPlayer
     private var audioFile: File? = null
     private var videoFile: String = ""
+
+    private val root: String = Environment.getExternalStorageDirectory().toString()
+    private val app_folder = "$root/VideoEditor/"
+    private var outputPath: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,7 +79,7 @@ class MainActivity : AppCompatActivity() {
 
         replaceAudioButton.setOnClickListener {
 
-            AudioManager(
+            /*AudioManager(
                 applicationContext,
                 object : AudioReplaceListener {
                     override fun onAudioReplacementComplete(success: Boolean, outputVideoPath: String) {
@@ -104,7 +112,55 @@ class MainActivity : AppCompatActivity() {
                 "00:00:10",
                 "00:00:05",
                 audioFile!!.absolutePath
-            ).execute()
+            ).execute()*/
+
+            var filePrefix = "replaced"
+            var fileExtn = ".mp4"
+
+            val filePath: String
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val valuesvideos = ContentValues()
+                valuesvideos.put(
+                    MediaStore.Video.Media.RELATIVE_PATH,
+                    "Movies/" + "Folder"
+                )
+                valuesvideos.put(
+                    MediaStore.Video.Media.TITLE,
+                    filePrefix + System.currentTimeMillis()
+                )
+                valuesvideos.put(
+                    MediaStore.Video.Media.DISPLAY_NAME,
+                    filePrefix + System.currentTimeMillis() + fileExtn
+                )
+                valuesvideos.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                valuesvideos.put(
+                    MediaStore.Video.Media.DATE_ADDED,
+                    System.currentTimeMillis() / 1000
+                )
+                valuesvideos.put(
+                    MediaStore.Video.Media.DATE_TAKEN,
+                    System.currentTimeMillis()
+                )
+                val uri = applicationContext.contentResolver.insert(
+                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                    valuesvideos
+                )
+                val file: File = FileUtils().getFileFromUri(applicationContext, uri!!)
+                outputPath = file.absolutePath
+            } else {
+                filePrefix = "reverse"
+                fileExtn = ".mp4"
+                var dest: File = File(File(app_folder), filePrefix + fileExtn)
+                var fileNo = 0
+                while (dest.exists()) {
+                    fileNo++
+                    dest = File(File(app_folder), filePrefix + fileNo + fileExtn)
+                }
+                outputPath = dest.absolutePath
+            }
+
+
+            FFmpegUtil(applicationContext).replaceAudioOfVideo(videoFile, audioFile!!.absolutePath, "00:00:10", "00:00:05", outputPath)
 
 
 
@@ -269,7 +325,8 @@ class MainActivity : AppCompatActivity() {
 
 //                videoFile = FileUtils().getFilePathFromUri(applicationContext, uri)!!
 
-                videoFile = file.absolutePath
+                videoFile = FileSelectionUtils.getFilePathFromUri(applicationContext, uri).path!!
+
 
                 val retriever = MediaMetadataRetriever()
                 retriever.setDataSource(applicationContext, uri)

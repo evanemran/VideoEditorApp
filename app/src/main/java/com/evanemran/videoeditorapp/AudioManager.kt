@@ -1,21 +1,27 @@
 package com.evanemran.videoeditorapp
 
+import android.app.ProgressDialog
 import android.content.ContentValues
 import android.content.Context
 import android.os.AsyncTask
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
+import android.widget.Toast
 import com.evanemran.videoeditorapp.listeners.AudioReplaceListener
 import com.evanemran.videoeditorapp.utils.FileUtils
+import kotlinx.coroutines.Dispatchers
 import java.io.BufferedReader
 import java.io.File
+import java.io.IOException
 import java.io.InputStreamReader
+
 
 class AudioManager(
     private val context: Context,
     private val listener: AudioReplaceListener,
-    private val originalVideoPath: String,
+    private var originalVideoPath: String,
     private val startTime: String,
     private val duration: String,
     private val newAudioPath: String,
@@ -81,6 +87,7 @@ class AudioManager(
             }
 
 
+            //commands for processbuilder
             val extractAudioCommand = arrayOf(
                 "-i", originalVideoPath,
                 "-ss", startTime,
@@ -90,6 +97,7 @@ class AudioManager(
             )
 
             executeFFmpegCommand(extractAudioCommand)
+//            executeFfmpegCommandNew(extractAudioCommand.joinToString(" "), outputPath)
 
             // Step 2: Merge the video with the new audio
             val mergeCommand = arrayOf(
@@ -104,6 +112,9 @@ class AudioManager(
             )
 
             executeFFmpegCommand(mergeCommand)
+//            executeFfmpegCommandNew(mergeCommand.joinToString(" "), outputPath)
+
+//            replaceAudio(originalVideoPath, newAudioPath, outputPath)
 
             // Clean up temporary files if needed
             // You can delete the extracted audio file after merging if you don't need it anymore
@@ -112,6 +123,28 @@ class AudioManager(
         } catch (e: Exception) {
             e.printStackTrace()
             return false
+        }
+    }
+
+    fun replaceAudio(inputVideoPath: String, inputAudioPath: String, outputVideoPath: String) {
+        try {
+            val ffmpegCommand = "ffmpeg -i $inputVideoPath -i $inputAudioPath " +
+                    "-c:v copy -c:a aac -strict experimental -map 0:v:0 -map 1:a:0 $outputVideoPath"
+
+            val process = Runtime.getRuntime().exec(ffmpegCommand)
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                // Log the output if needed
+                listener.onAudioReplacementComplete(true, outputPath)
+            }
+
+            process.waitFor()
+            process.destroy()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        } catch (e: InterruptedException) {
+            e.printStackTrace()
         }
     }
 
@@ -137,5 +170,40 @@ class AudioManager(
             e.printStackTrace()
         }
     }
+
+
+/*    private fun executeFfmpegCommandNew(exe: String, filePath: String) {
+
+        //creating the progress dialog
+
+        *//*
+            Here, we have used he Async task to execute our query because if we use the regular method the progress dialog
+            won't be visible. This happens because the regular method and progress dialog uses the same thread to execute
+            and as a result only one is a allowed to work at a time.
+            By using we Async task we create a different thread which resolves the issue.
+         *//*
+        FFmpegKit.executeAsync(exe, { session ->
+            val returnCode = session.returnCode
+            if (returnCode.isValueSuccess) {
+                //after successful execution of ffmpeg command,
+                //again set up the video Uri in VideoView
+//                    binding.videoView.setVideoPath(filePath)
+                //change the video_url to filePath, so that we could do more manipulations in the
+                //resultant video. By this we can apply as many effects as we want in a single video.
+                //Actually there are multiple videos being formed in storage but while using app it
+                //feels like we are doing manipulations in only one video
+                outputPath = filePath
+                listener.onAudioReplacementComplete(true, outputPath)
+                //play the result video in VideoView
+//                    binding.videoView.start()
+//                Toast.makeText(context, "Filter Applied", Toast.LENGTH_SHORT).show()
+            } else {
+                Log.d("TAG", session.allLogsAsString)
+//                Toast.makeText(context, "Something Went Wrong!", Toast.LENGTH_SHORT).show()
+            }
+        }, { log ->
+//            Toast.makeText(context, log.message, Toast.LENGTH_LONG).show()
+        }) { statistics -> Log.d("STATS", statistics.toString()) }
+    }*/
 
 }
