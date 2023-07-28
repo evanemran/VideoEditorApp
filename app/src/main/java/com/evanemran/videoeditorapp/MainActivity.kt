@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         startRecordingButton.setOnClickListener {
+            Toast.makeText(applicationContext, "Recording Started", Toast.LENGTH_SHORT).show()
             File(cacheDir, "audio.mp3").also {
                 recorder.startRecording(it)
                 audioFile = it
@@ -60,6 +61,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         stopRecordingButton.setOnClickListener {
+            Toast.makeText(applicationContext, "Recording Stopped", Toast.LENGTH_SHORT).show()
             recorder.stopRecording()
         }
 
@@ -257,15 +259,17 @@ class MainActivity : AppCompatActivity() {
 //                val inputStream = contentResolver.openInputStream(uri)
                 videoPlayer.playVideo(uri, videoView)
 
-//                val fileUri = data.data
-//                val file = File(fileUri!!.path.toString()) //create path from uri
-//
-//                val split = file.path.split(":".toRegex()).dropLastWhile { it.isEmpty() }
-//                    .toTypedArray() //split the path.
-//
+                val fileUri = data.data
+                val file = File(fileUri!!.path.toString()) //create path from uri
+
+                val split = file.path.split(":".toRegex()).dropLastWhile { it.isEmpty() }
+                    .toTypedArray() //split the path.
+
 //                videoFile = split[1] //assign it to a string(your choice).
 
-                videoFile = FileUtils().getFilePathFromUri(applicationContext, uri)!!
+//                videoFile = FileUtils().getFilePathFromUri(applicationContext, uri)!!
+
+                videoFile = file.absolutePath
 
                 val retriever = MediaMetadataRetriever()
                 retriever.setDataSource(applicationContext, uri)
