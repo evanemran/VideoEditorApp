@@ -10,19 +10,19 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.provider.MediaStore
 import android.provider.Settings
-import android.provider.SyncStateContract.Helpers
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.ThemedSpinnerAdapter.Helper
 import androidx.core.app.ActivityCompat
 import com.evanemran.videoeditorapp.listeners.AudioReplaceListener
+import com.evanemran.videoeditorapp.utils.FileUtils
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
+import java.io.IOException
+import java.net.URI
 
 
 class MainActivity : AppCompatActivity() {
@@ -38,7 +38,6 @@ class MainActivity : AppCompatActivity() {
     private var audioFile: File? = null
     private var videoFile: String = ""
 
-    @RequiresApi(Build.VERSION_CODES.R)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -71,29 +70,26 @@ class MainActivity : AppCompatActivity() {
         replaceAudioButton.setOnClickListener {
 
             AudioManager(
+                applicationContext,
                 object : AudioReplaceListener {
                     override fun onAudioReplacementComplete(success: Boolean, outputVideoPath: String) {
                         if (success) {
                             // Audio replacement was successful, you can use the new video with replaced audio
+                            try {
+                                val outputVideoFile: File = File(outputVideoPath)
+                                val internalStorageDir =
+                                    filesDir // You can change this to any other directory as per your requirements
 
-//                            try {
-//                                val file = File(outputVideoPath, "NewVid")
-//                                FileOutputStream(file).use { outputStream ->
-//                                    outputStream.write(yourFileData)
-//                                    // Optionally, you can notify the MediaScanner to scan the file and make it available in the device's file system
-//                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-//                                        val mediaScanIntent = Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE)
-//                                        mediaScanIntent.data = Uri.fromFile(file)
-//                                        sendBroadcast(mediaScanIntent)
-//                                    } else {
-//                                        // For Android 9 and below, use the deprecated method
-//                                        sendBroadcast(Intent(Intent.ACTION_MEDIA_MOUNTED, Uri.parse("file://" + Environment.getExternalStorageDirectory())))
-//                                    }
-//                                }
-//                            } catch (e: IOException) {
-//                                e.printStackTrace()
-//                            }
+                                // Copy the output video file to internal storage
+                                val outputFileInInternalStorage =
+                                    File(internalStorageDir, outputVideoFile.name)
+                                org.apache.commons.io.FileUtils.copyFile(outputVideoFile, outputFileInInternalStorage)
 
+                                // Now the new video with replaced audio is saved in the internal storage.
+                            } catch (e: IOException) {
+                                e.printStackTrace()
+                                // Handle the exception if copying the file fails.
+                            }
 
                             Toast.makeText(this@MainActivity, "Audio Replaced!", Toast.LENGTH_LONG).show()
                         } else {
@@ -102,7 +98,6 @@ class MainActivity : AppCompatActivity() {
                     }
                 },
                 videoFile,
-                applicationContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)!!.path,
 //                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                 "00:00:10",
                 "00:00:05",
@@ -180,7 +175,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    fun getPathFromUri(context: Context, uri: Uri): String? {
+    fun getPathFromUri(context: Context, uri: Uri): String {
         var filePath: String? = null
 
         // MediaStore (for images and videos) or other content providers
@@ -226,7 +221,6 @@ class MainActivity : AppCompatActivity() {
 //        audioFile!!.absolutePath
 //    )
 
-    @RequiresApi(Build.VERSION_CODES.R)
     private fun checkRuntimePermission() {
 
 //        ActivityCompat.requestPermissions(
@@ -239,7 +233,7 @@ class MainActivity : AppCompatActivity() {
 //            0
 //        )
 
-        hasPermission()
+//        hasPermission()
 
 //        readVideoFromInternalStorage()
     }
@@ -251,13 +245,11 @@ class MainActivity : AppCompatActivity() {
 
         startActivityForResult(intent, READ_REQUEST_CODE)
     }
-
-    @RequiresApi(Build.VERSION_CODES.R)
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
         if (requestCode == SETTINGS_CODE) {
-            hasPermission()
+//            hasPermission()
         }
 
         else if (requestCode == READ_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
@@ -265,7 +257,15 @@ class MainActivity : AppCompatActivity() {
 //                val inputStream = contentResolver.openInputStream(uri)
                 videoPlayer.playVideo(uri, videoView)
 
-                videoFile = getPathFromUri(applicationContext, uri)!!
+//                val fileUri = data.data
+//                val file = File(fileUri!!.path.toString()) //create path from uri
+//
+//                val split = file.path.split(":".toRegex()).dropLastWhile { it.isEmpty() }
+//                    .toTypedArray() //split the path.
+//
+//                videoFile = split[1] //assign it to a string(your choice).
+
+                videoFile = FileUtils().getFilePathFromUri(applicationContext, uri)!!
 
                 val retriever = MediaMetadataRetriever()
                 retriever.setDataSource(applicationContext, uri)
