@@ -1,74 +1,160 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<ScrollView
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context=".MainActivity">
-
-    <Button
-        android:id="@+id/button_open"
-        android:text="Choose Video FIle"
+    android:layout_height="wrap_content"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
-    <VideoView
-        android:id="@+id/videoView"
-        android:layout_alignParentTop="true"
-        android:layout_width="match_parent"
-        android:layout_height="400dp"/>
-    <LinearLayout
-        android:id="@+id/attr_container"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_below="@+id/videoView">
-        <TextView
-            android:id="@+id/textView_size"
-            android:text="Size"
-            android:textSize="16sp"
-            android:padding="8dp"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"/>
-        <TextView
-            android:id="@+id/textView_length"
-            android:text="Length"
-            android:textSize="16sp"
-            android:padding="8dp"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"/>
-    </LinearLayout>
-    <LinearLayout
-        android:layout_below="@+id/attr_container"
-        android:gravity="center"
-        android:layout_marginTop="8dp"
-        android:orientation="vertical"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-        <Button
-            android:id="@+id/startRecordingButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Start Recording" />
+        android:layout_height="match_parent"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        tools:context=".MainActivity">
 
         <Button
-            android:id="@+id/stopRecordingButton"
-            android:layout_width="wrap_content"
+            android:layout_alignParentTop="true"
+            android:id="@+id/button_open"
+            android:text="Choose Video FIle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <VideoView
+            android:id="@+id/videoView"
+            android:layout_width="match_parent"
+            android:layout_below="@+id/button_open"
+            android:layout_height="300dp"/>
+        <LinearLayout
+            android:id="@+id/duration_container"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Stop Recording" />
-
-        <Button
-            android:id="@+id/playRecordingButton"
-            android:layout_width="wrap_content"
+            android:orientation="horizontal"
+            android:layout_below="@+id/videoView">
+            <TextView
+                android:id="@+id/textView_start"
+                android:text="00:00:00"
+                android:textSize="16sp"
+                android:padding="8dp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"/>
+            <TextView
+                android:id="@+id/textView_end"
+                android:text="00:00:00"
+                android:textAlignment="textEnd"
+                android:textSize="16sp"
+                android:padding="8dp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"/>
+        </LinearLayout>
+        <org.florescu.android.rangeseekbar.RangeSeekBar
+            android:id="@+id/rangeSeekBar"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Play Recording" />
+            app:activeColor="@color/purple_700"
+            app:alwaysActive="true"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp"
+            app:barHeight="2dp"
+            app:showLabels="false"
+            android:layout_below="@+id/duration_container"
+            app:textAboveThumbsColor="#000000" />
 
-        <Button
-            android:id="@+id/replaceAudioButton"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:id="@+id/input_container"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Replace Audio" />
-    </LinearLayout>
+            android:orientation="horizontal"
+            android:layout_below="@+id/rangeSeekBar">
+            <EditText
+                android:id="@+id/editTextStart"
+                android:hint="Start time"
+                android:textAlignment="center"
+                android:textSize="16sp"
+                android:inputType="time"
+                android:padding="8dp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"/>
+            <EditText
+                android:id="@+id/editTextEnd"
+                android:hint="End time"
+                android:textAlignment="center"
+                android:textSize="16sp"
+                android:inputType="time"
+                android:padding="8dp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"/>
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/hint_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_below="@+id/input_container">
+            <TextView
+                android:text="Input time must be this format 00:00:00"
+                android:textAlignment="center"
+                android:textSize="16sp"
+                android:padding="8dp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"/>
+        </LinearLayout>
 
-</RelativeLayout>
+        <LinearLayout
+            android:id="@+id/attr_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_below="@+id/hint_container">
+            <TextView
+                android:id="@+id/textView_size"
+                android:text="Size"
+                android:textSize="16sp"
+                android:padding="8dp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"/>
+            <TextView
+                android:id="@+id/textView_length"
+                android:text="Length"
+                android:textSize="16sp"
+                android:padding="8dp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"/>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_below="@+id/attr_container"
+            android:gravity="center"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <Button
+                android:id="@+id/playRecordingButton"
+                android:enabled="false"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Play Recording" />
+
+            <Button
+                android:id="@+id/replaceAudioButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Replace Audio" />
+        </LinearLayout>
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/toggleRecordingButton"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentEnd="true"
+            android:layout_margin="16dp"
+            android:src="@drawable/ic_mic"
+            android:backgroundTint="@color/purple_200"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+
+    </RelativeLayout>
+</ScrollView>

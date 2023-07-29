@@ -1,54 +1,71 @@
 package com.evanemran.videoeditorapp
 
-import FFmpegUtil
+import android.Manifest.permission.READ_EXTERNAL_STORAGE
+import android.Manifest.permission.WRITE_EXTERNAL_STORAGE
 import android.app.Activity
+import android.app.ProgressDialog
 import android.content.ContentResolver
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
 import android.provider.MediaStore
-import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import com.evanemran.videoeditorapp.listeners.AudioReplaceListener
+import androidx.core.content.ContextCompat
+import com.arthenica.mobileffmpeg.Config.RETURN_CODE_CANCEL
+import com.arthenica.mobileffmpeg.Config.RETURN_CODE_SUCCESS
+import com.arthenica.mobileffmpeg.FFmpeg
 import com.evanemran.videoeditorapp.utils.FileSelectionUtils
 import com.evanemran.videoeditorapp.utils.FileUtils
-import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.activity_main.button_open
+import kotlinx.android.synthetic.main.activity_main.editTextEnd
+import kotlinx.android.synthetic.main.activity_main.editTextStart
+import kotlinx.android.synthetic.main.activity_main.playRecordingButton
+import kotlinx.android.synthetic.main.activity_main.rangeSeekBar
+import kotlinx.android.synthetic.main.activity_main.replaceAudioButton
+import kotlinx.android.synthetic.main.activity_main.textView_end
+import kotlinx.android.synthetic.main.activity_main.textView_length
+import kotlinx.android.synthetic.main.activity_main.textView_size
+import kotlinx.android.synthetic.main.activity_main.textView_start
+import kotlinx.android.synthetic.main.activity_main.toggleRecordingButton
+import kotlinx.android.synthetic.main.activity_main.videoView
 import java.io.File
-import java.io.IOException
-import java.net.URI
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 
 class MainActivity : AppCompatActivity() {
 
-    private val READ_REQUEST_CODE = 1
-
-    private val REQUEST_PERMISSION = 101
-    private val SETTINGS_CODE = 102
+    private val REQUEST_CODE_VIDEO_PICK = 1001
+    private val REQUEST_CODE_PERMISSIONS = 1002
 
     lateinit var recorder: AudioRecorder
     lateinit var audioPlayer: AudioPlayer
     lateinit var videoPlayer: VideoPlayer
     private var audioFile: File? = null
     private var videoFile: String = ""
+    private var isRecording: Boolean = false
+    private lateinit var r: Runnable
+    private var videoFilePath: String = ""
 
-    private val root: String = Environment.getExternalStorageDirectory().toString()
-    private val app_folder = "$root/VideoEditor/"
-    private var outputPath: String = ""
+    private lateinit var progressDialog: ProgressDialog
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        progressDialog = ProgressDialog(this@MainActivity)
+        progressDialog.setMessage("Please wait..")
+        progressDialog.setCancelable(false)
+        progressDialog.setCanceledOnTouchOutside(false)
 
         checkRuntimePermission()
 
@@ -60,276 +77,181 @@ class MainActivity : AppCompatActivity() {
             readVideoFromInternalStorage()
         }
 
-        startRecordingButton.setOnClickListener {
-            Toast.makeText(applicationContext, "Recording Started", Toast.LENGTH_SHORT).show()
-            File(cacheDir, "audio.mp3").also {
-                recorder.startRecording(it)
-                audioFile = it
+        toggleRecordingButton.setOnClickListener {
+            if(isRecording) {
+                isRecording = false
+                toggleRecordingButton.setImageResource(R.drawable.ic_mic)
+                Toast.makeText(applicationContext, "Recording Stopped", Toast.LENGTH_SHORT).show()
+                recorder.stopRecording()
+                playRecordingButton.isEnabled = true
             }
-        }
-
-        stopRecordingButton.setOnClickListener {
-            Toast.makeText(applicationContext, "Recording Stopped", Toast.LENGTH_SHORT).show()
-            recorder.stopRecording()
+            else {
+                isRecording = true
+                Toast.makeText(applicationContext, "Recording Started", Toast.LENGTH_SHORT).show()
+                playRecordingButton.isEnabled = false
+                toggleRecordingButton.setImageResource(R.drawable.ic_mic_off)
+                File(cacheDir, "audio.mp3").also {
+                    recorder.startRecording(it)
+                    audioFile = it
+                }
+            }
         }
 
         playRecordingButton.setOnClickListener {
             audioPlayer.playAudio(audioFile ?: return@setOnClickListener)
         }
 
-        replaceAudioButton.setOnClickListener {
+        videoView.setOnPreparedListener {
 
-            /*AudioManager(
-                applicationContext,
-                object : AudioReplaceListener {
-                    override fun onAudioReplacementComplete(success: Boolean, outputVideoPath: String) {
-                        if (success) {
-                            // Audio replacement was successful, you can use the new video with replaced audio
-                            try {
-                                val outputVideoFile: File = File(outputVideoPath)
-                                val internalStorageDir =
-                                    filesDir // You can change this to any other directory as per your requirements
 
-                                // Copy the output video file to internal storage
-                                val outputFileInInternalStorage =
-                                    File(internalStorageDir, outputVideoFile.name)
-                                org.apache.commons.io.FileUtils.copyFile(outputVideoFile, outputFileInInternalStorage)
+            val duration = it.duration / 1000
 
-                                // Now the new video with replaced audio is saved in the internal storage.
-                            } catch (e: IOException) {
-                                e.printStackTrace()
-                                // Handle the exception if copying the file fails.
-                            }
+            textView_start.text = "00:00:00"
+            textView_end.text = getTime(it.duration / 1000)
 
-                            Toast.makeText(this@MainActivity, "Audio Replaced!", Toast.LENGTH_LONG).show()
-                        } else {
-                            Toast.makeText(this@MainActivity, "Failed!", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                },
-                videoFile,
-//                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "00:00:10",
-                "00:00:05",
-                audioFile!!.absolutePath
-            ).execute()*/
+            it.isLooping = true
 
-            var filePrefix = "replaced"
-            var fileExtn = ".mp4"
+            ///Seekbar range settings not working///
 
-            val filePath: String
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val valuesvideos = ContentValues()
-                valuesvideos.put(
-                    MediaStore.Video.Media.RELATIVE_PATH,
-                    "Movies/" + "Folder"
-                )
-                valuesvideos.put(
-                    MediaStore.Video.Media.TITLE,
-                    filePrefix + System.currentTimeMillis()
-                )
-                valuesvideos.put(
-                    MediaStore.Video.Media.DISPLAY_NAME,
-                    filePrefix + System.currentTimeMillis() + fileExtn
-                )
-                valuesvideos.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                valuesvideos.put(
-                    MediaStore.Video.Media.DATE_ADDED,
-                    System.currentTimeMillis() / 1000
-                )
-                valuesvideos.put(
-                    MediaStore.Video.Media.DATE_TAKEN,
-                    System.currentTimeMillis()
-                )
-                val uri = applicationContext.contentResolver.insert(
-                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                    valuesvideos
-                )
-                val file: File = FileUtils().getFileFromUri(applicationContext, uri!!)
-                outputPath = file.absolutePath
-            } else {
-                filePrefix = "reverse"
-                fileExtn = ".mp4"
-                var dest: File = File(File(app_folder), filePrefix + fileExtn)
-                var fileNo = 0
-                while (dest.exists()) {
-                    fileNo++
-                    dest = File(File(app_folder), filePrefix + fileNo + fileExtn)
-                }
-                outputPath = dest.absolutePath
+//            rangeSeekBar.setRangeValues(0, duration)
+//            rangeSeekBar.setSelectedMinValue(0)
+//            rangeSeekBar.setSelectedMaxValue(duration)
+//            rangeSeekBar.selectedMinValue = 0
+//            rangeSeekBar.selectedMaxValue = duration
+
+            rangeSeekBar.isEnabled = true
+
+            rangeSeekBar!!.setOnRangeSeekBarChangeListener { bar, minValue, maxValue ->
+                videoView.seekTo(minValue as Int * 1000)
+
+                textView_start.text = getTime(bar.selectedMinValue as Int)
+                textView_end.text = getTime(bar.selectedMaxValue as Int)
             }
 
+            val handler = Handler()
+            r = Runnable {
+                if (videoView.currentPosition >= rangeSeekBar.selectedMaxValue.toInt() * 1000) videoView.seekTo(
+                    rangeSeekBar.selectedMinValue.toInt() * 1000
+                )
+                handler.postDelayed(r, 1000)
+            }
+            handler.postDelayed(r.also { r = it }, 1000)
+        }
 
-            FFmpegUtil(applicationContext).replaceAudioOfVideo(videoFile, audioFile!!.absolutePath, "00:00:10", "00:00:05", outputPath)
+        replaceAudioButton.setOnClickListener {
+
+            if(editTextStart.text.toString().isEmpty() || editTextEnd.text.toString().isEmpty()
+                || !audioFile!!.exists()) {
+                return@setOnClickListener
+            }
+
+            progressDialog.show()
+
+            val startingTimeStamp = editTextStart.text.toString()
+            val endingTimeStamp = editTextEnd.text.toString()
+            val duration = getTimeDifference(startingTimeStamp, endingTimeStamp)
 
 
+            val videoOutputFilePath = getVideoOutputFilePath()
+            val inputDirectory = Environment.getExternalStoragePublicDirectory("videoo.mp4")
 
-//            replaceAudioTask.execute()
+            val ffmpegReplaceCommand = "-f mp4 -i ${videoFile} -i ${audioFile!!.absolutePath} -ss $startingTimeStamp -t $duration -c:v copy -c:a copy -map 0:v:0 -map 1:a:0 $videoOutputFilePath"
+
+            val ffmpegSingleMergeCommand = "-f mp4 -i ${inputDirectory.absolutePath} -i ${audioFile!!.absolutePath} -ss 00:00:00 -t 00:00:10 -c:v copy -c:a copy -map 0:v:0 -map 1:a:0 -t 00:00:05 -c:a copy -map 1:a:1 $videoOutputFilePath"
+
+            val rc: Int = FFmpeg.execute(ffmpegReplaceCommand)
+            //  val rc: Int = FFmpeg.execute("-i " + outputDirectory.absolutePath + " -c:a copy " + audioOutputFilePath)
+            when (rc) {
+                RETURN_CODE_SUCCESS -> {
+                    // FFmpeg command execution completed successfully
+                    progressDialog.dismiss()
+                    Toast.makeText(this@MainActivity, "Success! Saved to $videoOutputFilePath", Toast.LENGTH_SHORT).show()
+                }
+                RETURN_CODE_CANCEL -> {
+                    progressDialog.dismiss()
+                    // FFmpeg command execution cancelled by user
+                    Toast.makeText(this@MainActivity, "Cancel", Toast.LENGTH_SHORT).show()
+                }
+                else -> {
+                    progressDialog.dismiss()
+                    // Something went wrong
+                    Toast.makeText(this@MainActivity, "Fail", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
-
-    @RequiresApi(Build.VERSION_CODES.R)
-    private fun hasPermission() {
-        val s = arrayOf<String>(
-            android.Manifest.permission.READ_EXTERNAL_STORAGE,
-            android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
-            android.Manifest.permission.MANAGE_EXTERNAL_STORAGE,
-        )
-        if (ActivityCompat.checkSelfPermission(
-                this@MainActivity,
-                android.Manifest.permission.READ_EXTERNAL_STORAGE
-            ) != PackageManager.PERMISSION_GRANTED ||
-            ActivityCompat.checkSelfPermission(
-                this@MainActivity,
-                android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-            ) != PackageManager.PERMISSION_GRANTED ||
-            ActivityCompat.checkSelfPermission(
-                this@MainActivity,
-                android.Manifest.permission.MANAGE_EXTERNAL_STORAGE
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            PermissionsDialog(s)
-        } else {
-            // do something when you got permission
-        }
-    }
-
-    private fun PermissionsDialog(s: Array<String>) {
-        ActivityCompat.requestPermissions(this@MainActivity, s, REQUEST_PERMISSION)
-    }
-
-    @RequiresApi(Build.VERSION_CODES.R)
     override fun onRequestPermissionsResult(
         requestCode: Int,
-        permissions: Array<String?>,
+        permissions: Array<out String>,
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_PERMISSION) {
-            if (grantResults.size > 0) {
-                for (grantResult in grantResults) {
-                    if (grantResult != PackageManager.PERMISSION_GRANTED) {
-                        if (!ActivityCompat.shouldShowRequestPermissionRationale(
-                                this@MainActivity,
-                                permissions[0]!!
-                            )
-                        ) {
-                            startActivityForResult(
-                                Intent(
-                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                    Uri.parse("package:" + BuildConfig.APPLICATION_ID)
-                                ), SETTINGS_CODE
-                            )
-                        } else {
-                            hasPermission()
-                        }
-                    } else {
-                        // do something when you got permission
-                    }
-                }
+        if (requestCode == REQUEST_CODE_PERMISSIONS) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                readVideoFromInternalStorage()
             }
         }
     }
-
-
-    fun getPathFromUri(context: Context, uri: Uri): String {
-        var filePath: String? = null
-
-        // MediaStore (for images and videos) or other content providers
-        if (uri.scheme == "content") {
-            val projection = arrayOf(MediaStore.MediaColumns.DATA)
-            var cursor: Cursor? = null
-            try {
-                cursor = context.contentResolver.query(uri, projection, null, null, null)
-                if (cursor != null && cursor.moveToFirst()) {
-                    val columnIndex = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA)
-                    filePath = cursor.getString(columnIndex)
-                }
-            } catch (e: Exception) {
-                Log.e("getPathFromUri", "Error getting path from content URI: $uri", e)
-            } finally {
-                cursor?.close()
-            }
-        }
-
-        // File scheme
-        else if (uri.scheme == "file") {
-            filePath = uri.path
-        }
-
-        return filePath.toString()
-    }
-//
-//    private val replaceAudioTask = AudioManager(
-//        object : AudioReplaceListener {
-//            override fun onAudioReplacementComplete(success: Boolean, outputVideoPath: String) {
-//                if (success) {
-//                    // Audio replacement was successful, you can use the new video with replaced audio
-//                    Toast.makeText(this@MainActivity, "Audio Replaced!", Toast.LENGTH_LONG).show()
-//                } else {
-//                    Toast.makeText(this@MainActivity, "Failed!", Toast.LENGTH_LONG).show()
-//                }
-//            }
-//        },
-//        videoFile!!.absolutePath,
-//        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath,
-//        "00:00:10",
-//        "00:00:05",
-//        audioFile!!.absolutePath
-//    )
 
     private fun checkRuntimePermission() {
 
-//        ActivityCompat.requestPermissions(
-//            this,
-//            arrayOf(
-//                android.Manifest.permission.RECORD_AUDIO,
-//                android.Manifest.permission.READ_EXTERNAL_STORAGE,
-//                android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
-//            ),
-//            0
-//        )
-
-//        hasPermission()
-
-//        readVideoFromInternalStorage()
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(
+                android.Manifest.permission.RECORD_AUDIO,
+                android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            ),
+            0
+        )
     }
 
     private fun readVideoFromInternalStorage() {
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
-        intent.addCategory(Intent.CATEGORY_OPENABLE)
-        intent.type = "video/*"
-
-        startActivityForResult(intent, READ_REQUEST_CODE)
+        if (ContextCompat.checkSelfPermission(
+                this,
+                READ_EXTERNAL_STORAGE
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE),
+                REQUEST_CODE_PERMISSIONS
+            )
+        } else {
+            val intent = Intent(Intent.ACTION_PICK)
+            intent.type = "video/*"
+            startActivityForResult(intent, REQUEST_CODE_VIDEO_PICK)
+        }
     }
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_CODE_VIDEO_PICK && resultCode == Activity.RESULT_OK) {
+            data?.data?.let { videoUri ->
 
-        if (requestCode == SETTINGS_CODE) {
-//            hasPermission()
-        }
+                try {
 
-        else if (requestCode == READ_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
-            data?.data?.let { uri ->
-//                val inputStream = contentResolver.openInputStream(uri)
-                videoPlayer.playVideo(uri, videoView)
+                    videoView.setVideoURI(videoUri)
+                    videoView.start()
+
+                } catch (e: java.lang.Exception) {
+                    Toast.makeText(this, "Error", Toast.LENGTH_SHORT).show()
+                    e.printStackTrace()
+                }
+
+                //ToDo
+                videoFilePath = videoUri.path!!
 
                 val fileUri = data.data
                 val file = File(fileUri!!.path.toString()) //create path from uri
-
                 val split = file.path.split(":".toRegex()).dropLastWhile { it.isEmpty() }
                     .toTypedArray() //split the path.
 
-//                videoFile = split[1] //assign it to a string(your choice).
-
-//                videoFile = FileUtils().getFilePathFromUri(applicationContext, uri)!!
-
-                videoFile = FileSelectionUtils.getFilePathFromUri(applicationContext, uri).path!!
+                videoFile = FileSelectionUtils.getFilePathFromUri(applicationContext, videoUri).path!!
 
 
                 val retriever = MediaMetadataRetriever()
-                retriever.setDataSource(applicationContext, uri)
+                retriever.setDataSource(applicationContext, videoUri)
 
                 val videoLengthStr =
                     retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
@@ -340,9 +262,9 @@ class MainActivity : AppCompatActivity() {
 
                 val contentResolver: ContentResolver = applicationContext.contentResolver
 
-                val inputStream = contentResolver.openInputStream(uri)
+                val inputStream = contentResolver.openInputStream(videoUri)
                 val fileSize = inputStream?.available() ?: 0
-                val fileSizeInMB = String.format("%.2f MB", fileSize / (1024.0 * 1024.0))
+                val fileSizeInMB = String.format("Size %.2f MB", fileSize / (1024.0 * 1024.0))
 
                 inputStream?.close()
                 retriever.release()
@@ -353,12 +275,50 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
+    private fun getVideoOutputFilePath(): String {
+        val outputDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        outputDirectory.mkdirs()
+        val outputFile = File(outputDirectory, "test3.mp4")
+        if (audioFile!!.exists()) {
+            val deleted: Boolean = outputFile.delete()
+            if (deleted) {
+                Log.d("FileDeleter", "File deleted successfully")
+            } else {
+                Log.d("FileDeleter", "Failed to delete file")
+            }
+        }
+        return outputFile.absolutePath
+    }
     fun formatMillisecondsToTime(milliseconds: Long): String {
         val totalSeconds = milliseconds / 1000
         val hours = totalSeconds / 3600
         val minutes = (totalSeconds % 3600) / 60
         val seconds = totalSeconds % 60
+
+        return String.format("%02d:%02d:%02d", hours, minutes, seconds)
+    }
+    private fun getTime(seconds: Int): String {
+        val hr = seconds / 3600
+        val rem = seconds % 3600
+        val mn = rem / 60
+        val sec = rem % 60
+        return String.format("%02d", hr) + ":" + String.format(
+            "%02d",
+            mn
+        ) + ":" + String.format("%02d", sec)
+    }
+    fun getTimeDifference(startTime: String, endTime: String): String {
+        val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+
+        val startTimeMillis = timeFormat.parse(startTime)?.time ?: 0
+        val endTimeMillis = timeFormat.parse(endTime)?.time ?: 0
+
+        val differenceMillis = endTimeMillis - startTimeMillis
+        val differenceSeconds = differenceMillis / 1000
+
+        val hours = differenceSeconds / 3600
+        val minutes = (differenceSeconds % 3600) / 60
+        val seconds = differenceSeconds % 60
 
         return String.format("%02d:%02d:%02d", hours, minutes, seconds)
     }
